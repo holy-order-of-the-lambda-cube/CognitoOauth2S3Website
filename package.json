@@ -1,0 +1,39 @@
+{
+	"name": "CognitoOauth2",
+	"version": "0.0.2",
+	"description": "Authenticates users against a cognito user pool using Oauth2",
+	"main": "index.js",
+	"scripts": {
+		"build": "./build.sh production",
+		"debug": "./build.sh development",
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"author": "Naughty Computer",
+	"license": "Monastic-1.0",
+	"dependencies": {
+		"jsonwebtoken": "^8.4.0",
+		"jwk-to-pem": "^2.0.1"
+	},
+	"devDependencies": {
+		"aws-sdk": "^2.290.0",
+		"base64-js": "^1.3.0",
+		"buffer": "^4.9.1",
+		"dynamodb-doc": "^1.0.0",
+		"events": "^1.1.1",
+		"ieee754": "^1.1.8",
+		"imagemagick": "^0.1.3",
+		"isarray": "^1.0.0",
+		"jmespath": "^0.15.0",
+		"lodash": "^4.17.10",
+		"punycode": "^1.3.2",
+		"querystring": "^0.2.0",
+		"sax": "^1.2.1",
+		"url": "^0.10.3",
+		"uuid": "^3.1.0",
+		"webpack": "^4.29.3",
+		"webpack-cli": "^3.2.3",
+		"webpack-node-externals": "^1.7.2",
+		"xml2js": "^0.4.19",
+		"xmlbuilder": "^9.0.7"
+	}
+}

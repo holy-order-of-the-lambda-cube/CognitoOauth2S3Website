@@ -1,0 +1,77 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: Creates an authenticated cloudfront portal
+Parameters:
+  Alias:
+    Type: String
+  CertificateArn:
+    Type: String
+  HostedZoneId:
+    Type: String
+  OriginDomain:
+    Type: String
+  OriginAccessIdentity:
+    Type: String
+  WebAuthFunctionRoleArn:
+    Type: String
+Resources:
+  WebAuthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Authenticates incoming requests against cognito
+      Role: !Ref WebAuthFunctionRoleArn
+      AutoPublishAlias: live
+      Handler: index.handler
+      Runtime: nodejs8.10
+      CodeUri: ./dist
+      MemorySize: 128
+      Timeout: 5
+  CloudfrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Aliases:
+          - !Ref Alias
+        Comment: Authenticated portal
+        DefaultRootObject: index.html
+        Enabled: true
+        HttpVersion: http2
+        IPV6Enabled: false
+        PriceClass: PriceClass_100
+        DefaultCacheBehavior:
+          AllowedMethods: ["GET", "HEAD", "OPTIONS"]
+          CachedMethods: ["GET", "HEAD", "OPTIONS"]
+          Compress: true
+          TargetOriginId: secure-website
+          ViewerProtocolPolicy: redirect-to-https
+          ForwardedValues:
+            Cookies:
+              Forward: none
+            QueryString: false
+          LambdaFunctionAssociations:
+            - EventType: viewer-request
+              LambdaFunctionARN: !Join [":", [!GetAtt WebAuthFunction.Arn, !GetAtt WebAuthFunction.Version.Version]]
+        Origins:
+          - DomainName: !Ref OriginDomain
+            Id: secure-website
+            S3OriginConfig:
+              OriginAccessIdentity: !Ref OriginAccessIdentity
+        Restrictions:
+          GeoRestriction:
+            Locations:
+              - US
+            RestrictionType: whitelist
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateArn
+          MinimumProtocolVersion: TLSv1.1_2016
+          SslSupportMethod: sni-only
+  DomainAlias:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref Alias
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt CloudfrontDistribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2
+        EvaluateTargetHealth: false
