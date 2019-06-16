@@ -1,6 +1,6 @@
 # CognitoOauth2S3Website
 
-A cognito authenticated static site hosted in S3.
+#### A cognito authenticated static site hosted in S3.
 
 This Open Source project defines a function that can be used to authenticate a user that is accessing a website hosted on S3 via cloudfront against a cognito user pool using Oauth2. The authentication processes uses full Oauth2 security measures including the use of a client secret and stores the authentication token for the user in a cookie.
 
@@ -55,6 +55,35 @@ The terraform directory contains a standalone terraform project in order to get 
 - A Cognito user pool to authenticate against.
 - A route53 hosted domain for the secure website.
 - An SSL certificate from AWS certificate manager for the domain.
+
+The project takes the followining input variables:
+
+- acm_certificate_arn. The ARN of the SSL certificate on AWS Certificate Manager.
+- auth_prefix. The domain prefix for the domain which points to the Cognito authentication. Defaults to 'auth.'
+- aws_account_id. The account id of the AWS account hosting the site.
+- cognito_aws_region. The region which hosts the Cognito user pool. Defaults to 'us-east-1'.
+- cognito_user_pool. The identifier for the Cognito user pool.
+- github_oauth_token. An Oauth token to access github. This need only public access to pull the open source project into the codepipeline, so having no scopes defined will suffice and should be preferred. You can aquire such a token from github under Settings -> Developer Settings -> Personal Access Tokens.
+- hosted_zone_id. The route53 zone id for your domain.
+- secure_prefix. The domain prefix for your secure site. Defaults to 'private.'.
+- site_aws_region. The AWS region that will host the secure site. Defaults to 'us-east-1'.
+- tld. The tld of your domain.
+
+These variables can be set in a terraform.tfvars file like so:
+
+```
+aws_account_id = "<Your AWS Account Id>"
+tld = "example.com"
+cognito_user_pool = "us-east-1_xxxxxxxxx"
+acm_certificate_arn = "arn:aws:acm:us-east-1:xxxxxxxxx:certificate/<Your Cert Id>"
+hosted_zone_id = "xxxxxxxxxxx"
+github_oauth_token = "<Your Oauth Token>"
+
+```
+
+To execute the terraform project, first download the terraform executable and place it in your path. Then perform a 'terraform init' to create the terraform state files. Finally, perform 'terraform apply' to create the site. You can delete the site and all resources associated with it by performing a 'terraform destroy'.
+
+Be aware that AWS charges will accrue for deploying this site, however these are minimal as this project uses very little AWS resources.
 
 ### Licensing
 
