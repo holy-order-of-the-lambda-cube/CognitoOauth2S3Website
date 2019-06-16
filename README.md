@@ -81,7 +81,9 @@ github_oauth_token = "<Your Oauth Token>"
 
 ```
 
-To execute the terraform project, first download the terraform executable and place it in your path. Then perform a 'terraform init' to create the terraform state files. Finally, perform 'terraform apply' to create the site. You can delete the site and all resources associated with it by performing a 'terraform destroy'.
+To execute the terraform project, first download the terraform executable and place it in your path. Then perform a 'terraform init' to create the terraform state files. Finally, perform 'terraform apply' to create the site. After the apply completes you can visit the codepipeline created by terraform in the AWS console to monitor for completion of the deployment. Once the deployment completes successfully you should be able to access the website at the url for the domain you provided.
+
+You can delete the site and all resources associated with it by performing a 'terraform destroy'. Some resources may fail to destroy until propegation of certain resources, such as lambda replication or DNS updates has completed. If a destroy fails, allow time for propegation and try again. The same is possible when redeploying after a destroy.
 
 Be aware that AWS charges will accrue for deploying this site, however these are minimal as this project uses very little AWS resources.
 
