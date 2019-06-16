@@ -57,6 +57,12 @@ variable "hosted_zone_id" {
 	type        = string
 }
 
+variable "name_prefix" {
+	default     = ""
+	description = "A prefix for AWS names so that second invocations of the module will not clash"
+	type        = string
+}
+
 variable "populate_site" {
 	default     = "true"
 	description = "If true, will put a placeholder index.html into the s3 bucket containing the secure site"
@@ -66,11 +72,5 @@ variable "populate_site" {
 variable "site_region" {
 	default     = "us-east-1"
 	description = "The region that the site is hosted in"
-	type        = string
-}
-
-variable "stage" {
-	default     = "prod"
-	description = "The name of the deployment stage, such as test or prod"
 	type        = string
 }

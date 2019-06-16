@@ -22,7 +22,7 @@ provider "aws" {
 # This bucket will hold the SAM template build artifacts
 resource "aws_s3_bucket" "build-artifacts" {
 	provider      = aws.us-east-1
-	bucket_prefix = "c-build-artifacts-${var.stage}"
+	bucket_prefix = "${var.name_prefix}build-artifacts"
 	force_destroy = true
 
 	server_side_encryption_configuration {
@@ -71,7 +71,7 @@ resource "aws_s3_bucket" "secure-site" {
 resource "aws_s3_bucket" "codepipeline" {
 	# Locate in us-east-1 since we are deploying the lambda@edge function here
 	provider      = aws.us-east-1
-	bucket_prefix = "c-codepipeline-${var.stage}"
+	bucket_prefix = "${var.name_prefix}codepipeline"
 	force_destroy = true
 
 	server_side_encryption_configuration {
@@ -139,9 +139,9 @@ resource "aws_s3_bucket_object" "examplebucket_object" {
 	count                  = var.populate_site == "true" ? 1 : 0
 	provider               = aws.site
 	key                    = "index.html"
-	bucket                 = "${aws_s3_bucket.secure-site.id}"
+	bucket                 = aws_s3_bucket.secure-site.id
 	server_side_encryption = "AES256"
-	content                = "<HTML><HEAD/><BODY><P>Hello World!</P><P>Utilizes <A href='https://github.com/holy-order-of-the-lambda-cube/CognitoOauth2S3Website'>software</A> from the Holy Order of the Lambda Cube</P></BODY></HTML>"
+	content                = "<HTML><HEAD/><BODY><P>Hello World!</P><P>Utilizes <A href='https://github.com/${var.github_owner}/${var.github_repo}'>software</A> from the Holy Order of the Lambda Cube</P></BODY></HTML>"
 	content_type           = "text/html"
 }
 
@@ -155,7 +155,7 @@ resource "aws_route53_record" "secure-site" {
 	provider = aws.site
 
 	zone_id  = var.hosted_zone_id
-	name     = "${var.auth_domain}"
+	name     = var.auth_domain
 	type     = "A"
 
 	alias {
@@ -169,7 +169,7 @@ resource "aws_route53_record" "secure-site" {
 
 resource "aws_cognito_user_pool_client" "secure-site" {
 	provider                             = aws.cognito
-	name                                 = "secure-site"
+	name                                 = "${var.name_prefix}secure-site"
 	allowed_oauth_flows                  = ["code"]
 	allowed_oauth_flows_user_pool_client = true
 	allowed_oauth_scopes                 = ["openid"]
@@ -182,7 +182,7 @@ resource "aws_cognito_user_pool_client" "secure-site" {
 
 resource "aws_cognito_user_pool_domain" "secure-site" {
 	provider        = aws.cognito
-	domain          = "${var.auth_domain}"
+	domain          = var.auth_domain
 	certificate_arn = var.acm_certificate_arn
 	user_pool_id    = var.cognito_user_pool
 }
@@ -190,7 +190,7 @@ resource "aws_cognito_user_pool_domain" "secure-site" {
 # The codepipeline to build the cloudfront distribution and lambda@edge function
 resource "aws_codepipeline" "secure-site" {
 	provider = aws.us-east-1
-	name     = "c-secure-site-${var.stage}"
+	name     = "${var.name_prefix}secure-site"
 	role_arn = aws_iam_role.codepipeline.arn
 
 	# Pipeline fails permission check sometimes when it autofires at creation so wait for role policy to apply.
@@ -260,8 +260,8 @@ resource "aws_codepipeline" "secure-site" {
 
 			configuration = {
 				ActionMode         = "CHANGE_SET_REPLACE"
-				StackName          = "c-secure-site-${var.stage}"
-				ChangeSetName      = "c-secure-site-${var.stage}"
+				StackName          = "${var.name_prefix}secure-site"
+				ChangeSetName      = "${var.name_prefix}secure-site"
 				RoleArn            = aws_iam_role.codepipeline-cloudformation-deploy.arn
 				TemplatePath       = "build::output.yaml"
 				ParameterOverrides = "{\"Alias\":\"${aws_s3_bucket.secure-site.bucket}\",\"CertificateArn\":\"${var.acm_certificate_arn}\",\"HostedZoneId\":\"${var.hosted_zone_id}\",\"OriginAccessIdentity\":\"${aws_cloudfront_origin_access_identity.secure-site.cloudfront_access_identity_path}\",\"OriginDomain\":\"${aws_s3_bucket.secure-site.bucket_regional_domain_name}\",\"WebAuthFunctionRoleArn\":\"${aws_iam_role.lambda-cloudfront-auth.arn}\"}"
@@ -278,8 +278,8 @@ resource "aws_codepipeline" "secure-site" {
 
 			configuration = {
 				ActionMode    = "CHANGE_SET_EXECUTE"
-				StackName     = "c-secure-site-${var.stage}"
-				ChangeSetName = "c-secure-site-${var.stage}"
+				StackName     = "${var.name_prefix}secure-site"
+				ChangeSetName = "${var.name_prefix}secure-site"
 			}
 		}
 	}
@@ -287,7 +287,7 @@ resource "aws_codepipeline" "secure-site" {
 
 resource "aws_codebuild_project" "secure-site" {
 	provider     = aws.us-east-1
-	name         = "c-secure-site-${var.stage}"
+	name         = "secure-site"
 	description  = "Secure site builder"
 	service_role = "${aws_iam_role.codebuild.arn}"
 
@@ -302,32 +302,32 @@ resource "aws_codebuild_project" "secure-site" {
 
 		environment_variable {
 			name = "c_s3_target_bucket"
-			value = "${aws_s3_bucket.build-artifacts.bucket}"
+			value = aws_s3_bucket.build-artifacts.bucket
 		}
 
 		environment_variable {
 			name = "c_cognito_user_pool"
-			value = "${var.cognito_user_pool}"
+			value = var.cognito_user_pool
 		}
 
 		environment_variable {
 			name = "c_cognito_client_id"
-			value = "${aws_cognito_user_pool_client.secure-site.id}"
+			value = aws_cognito_user_pool_client.secure-site.id
 		}
 
 		environment_variable {
 			name = "c_site_domain"
-			value = "${var.domain}"
+			value = var.domain
 		}
 
 		environment_variable {
 			name = "c_auth_domain"
-			value = "${var.auth_domain}"
+			value = var.auth_domain
 		}
 
 		environment_variable {
 			name = "c_client_secret"
-			value = "${aws_cognito_user_pool_client.secure-site.client_secret}"
+			value = aws_cognito_user_pool_client.secure-site.client_secret
 		}
 	}
 
@@ -348,7 +348,7 @@ resource "aws_cloudformation_stack" "secure-site" {
 
 	# Only us-east-1
 	provider     = aws.us-east-1
-	name         = "c-secure-site-${var.stage}"
+	name         = "${var.name_prefix}secure-site"
 	iam_role_arn = aws_iam_role.codepipeline-cloudformation-deploy.arn
 
 	# The inital stack does nothing. Triggers from codecommit will update this stack using SAM and deploy Lambda functions
@@ -365,58 +365,58 @@ resource "aws_cloudformation_stack" "secure-site" {
 # but I figure replication might be slightly faster this way
 resource "aws_cloudwatch_log_group" "codebuild" {
 	provider          = aws.us-east-1
-	name              = "/aws/codebuild/c-secure-site-${var.stage}"
+	name              = "/aws/codebuild/${var.name_prefix}secure-site"
 	retention_in_days = 7
 }
 
 resource "aws_iam_role" "codebuild" {
 	provider           = aws.us-east-1
-	name_prefix        = "c-codebuild-${var.stage}"
+	name_prefix        = "${var.name_prefix}codebuild"
 	assume_role_policy = data.aws_iam_policy_document.codebuild-assume-role.json
 }
 
 resource "aws_iam_role" "codepipeline" {
 	provider           = aws.us-east-1
-	name_prefix        = "c-pipe-secure-site-${var.stage}"
+	name_prefix        = "${var.name_prefix}pipe-secure-site"
 	assume_role_policy = data.aws_iam_policy_document.codepipeline-assume-role.json
 }
 
 resource "aws_iam_role" "codepipeline-cloudformation-deploy" {
 	provider           = aws.us-east-1
-	name_prefix        = "c-pipe-cfn-deploy-${var.stage}"
+	name_prefix        = "${var.name_prefix}pipe-cfn-deploy"
 	assume_role_policy = data.aws_iam_policy_document.codepipeline-assume-role-cloudformation.json
 }
 
 resource "aws_iam_role" "lambda-cloudfront-auth" {
 	provider           = aws.us-east-1
-	name_prefix        = "c-lambda-cloudfront-auth-${var.stage}"
+	name_prefix        = "${var.name_prefix}lambda-cloudfront-auth"
 	assume_role_policy = data.aws_iam_policy_document.edgelambda-assume-role.json
 }
 
 resource "aws_iam_role_policy" "codebuild" {
 	provider    = aws.us-east-1
-	name_prefix = "c-codebuild-primary-${var.stage}"
+	name_prefix = "${var.name_prefix}codebuild-primary"
 	role        = aws_iam_role.codebuild.id
 	policy      = data.aws_iam_policy_document.codebuild.json
 }
 
 resource "aws_iam_role_policy" "codepipeline" {
 	provider    = aws.us-east-1
-	name_prefix = "c-pipe-secure-site-${var.stage}"
+	name_prefix = "${var.name_prefix}pipe-secure-site"
 	role        = aws_iam_role.codepipeline.id
 	policy      = data.aws_iam_policy_document.codepipeline.json
 }
 
 resource "aws_iam_role_policy" "codepipeline-cloudformation-deploy" {
 	provider    = aws.us-east-1
-	name_prefix = "c-pipe-cfn-deploy-${var.stage}"
+	name_prefix = "${var.name_prefix}pipe-cfn-deploy"
 	role        = aws_iam_role.codepipeline-cloudformation-deploy.id
 	policy      = data.aws_iam_policy_document.codepipeline-cloudformation-deploy.json
 }
 
 resource "aws_iam_role_policy" "lambda-cloudfront-auth" {
 	provider    = aws.us-east-1
-	name_prefix = "c-lambda-cloudfront-auth-${var.stage}"
+	name_prefix = "${var.name_prefix}lambda-cloudfront-auth"
 	role        = aws_iam_role.lambda-cloudfront-auth.id
 	policy      = data.aws_iam_policy_document.lambda-cloudfront-auth.json
 }
@@ -449,7 +449,7 @@ data "aws_iam_policy_document" "codebuild" {
 	statement {
 		actions = [
 			"s3:GetObject",
-			"s3:PutObject",
+			"s3:PutObject"
 		]
 
 		resources = ["${aws_s3_bucket.codepipeline.arn}/*"]
@@ -467,7 +467,7 @@ data "aws_iam_policy_document" "codepipeline" {
 	statement {
 		actions = [
 			"codebuild:BatchGetBuilds",
-			"codebuild:StartBuild",
+			"codebuild:StartBuild"
 		]
 
 		resources = [aws_codebuild_project.secure-site.arn]
@@ -477,7 +477,7 @@ data "aws_iam_policy_document" "codepipeline" {
 		actions = [
 			"s3:GetObject",
 			"s3:GetObjectVersion",
-			"s3:PutObject",
+			"s3:PutObject"
 		]
 
 		resources = ["${aws_s3_bucket.codepipeline.arn}/*"]
@@ -489,10 +489,10 @@ data "aws_iam_policy_document" "codepipeline" {
 			"cloudformation:DeleteChangeSet",
 			"cloudformation:DescribeChangeSet",
 			"cloudformation:DescribeStacks",
-			"cloudformation:ExecuteChangeSet",
+			"cloudformation:ExecuteChangeSet"
 		]
 
-		resources = ["arn:aws:cloudformation:us-east-1:${var.aws_account_id}:stack/c-secure-site-${var.stage}/*"]
+		resources = ["arn:aws:cloudformation:us-east-1:${var.aws_account_id}:stack/${var.name_prefix}secure-site}/*"]
 	}
 
 	statement {
@@ -550,7 +550,7 @@ data "aws_iam_policy_document" "codepipeline-cloudformation-deploy" {
 			"lambda:TagResource",
 			"lambda:UntagResource",
 			"lambda:UpdateAlias",
-			"lambda:UpdateFunctionCode",
+			"lambda:UpdateFunctionCode"
 		]
 
 		resources = ["arn:aws:lambda:us-east-1:${var.aws_account_id}:function:${aws_codepipeline.secure-site.name}-WebAuthFunction-*"]
@@ -572,7 +572,7 @@ data "aws_iam_policy_document" "codepipeline-cloudformation-deploy" {
 			"cloudfront:DeleteDistribution",
 			"cloudfront:GetDistribution",
 			"cloudfront:TagResource",
-			"cloudfront:UpdateDistribution",
+			"cloudfront:UpdateDistribution"
 		]
 
 		resources = ["*"]
@@ -582,7 +582,7 @@ data "aws_iam_policy_document" "codepipeline-cloudformation-deploy" {
 		actions = [
 			"route53:ChangeResourceRecordSets",
 			"route53:GetHostedZone",
-			"route53:ListResourceRecordSets",
+			"route53:ListResourceRecordSets"
 		]
 
 		resources = ["arn:aws:route53:::hostedzone/${var.hosted_zone_id}"]
@@ -600,6 +600,7 @@ data "aws_iam_policy_document" "edgelambda-assume-role" {
 	statement {
 		principals {
 			type = "Service"
+
 			identifiers = [
 				"edgelambda.amazonaws.com",
 				"lambda.amazonaws.com"
