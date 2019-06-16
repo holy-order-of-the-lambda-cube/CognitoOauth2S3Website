@@ -1,0 +1,23 @@
+{
+	"Conditions": {
+		"Never": {
+			"Fn::Equals": [
+				"true",
+				"false"
+			]
+		}
+	},
+	"Resources": {
+		"NullResource": {
+			"Type": "CustomNullResource",
+			"Condition": "Never"
+		}
+	},
+	"Outputs": {
+		"ExportStackName": {
+			"Value": {
+				"Ref": "AWS::StackName"
+			}
+		}
+	}
+}

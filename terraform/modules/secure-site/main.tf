@@ -52,12 +52,12 @@ resource "aws_s3_bucket" "build-artifacts" {
 }
 
 # Website that requires authentication
-# Server side encryption is not KMS because cloudfront can't decrypt KMS
 resource "aws_s3_bucket" "secure-site" {
 	provider      = aws.site
 	bucket        = "${var.domain}"
 	force_destroy = true
 
+	# Server side encryption is not KMS because cloudfront can't decrypt KMS
 	server_side_encryption_configuration {
 		rule {
 			apply_server_side_encryption_by_default {
@@ -135,6 +135,16 @@ resource "aws_s3_bucket_policy" "secure-site" {
 	policy   = data.aws_iam_policy_document.s3-secure-site.json
 }
 
+resource "aws_s3_bucket_object" "examplebucket_object" {
+	count                  = var.populate_site == "true" ? 1 : 0
+	provider               = aws.site
+	key                    = "index.html"
+	bucket                 = "${aws_s3_bucket.secure-site.id}"
+	server_side_encryption = "AES256"
+	content                = "<HTML><HEAD/><BODY><P>Hello World!</P><P>Utilizes <A href='https://github.com/holy-order-of-the-lambda-cube/CognitoOauth2S3Website'>software</A> from the Holy Order of the Lambda Cube</P></BODY></HTML>"
+	content_type           = "text/html"
+}
+
 resource "aws_cloudfront_origin_access_identity" "secure-site" {
 	provider = aws.us-east-1
 	comment  = "Secure website identity"
@@ -180,7 +190,7 @@ resource "aws_cognito_user_pool_domain" "secure-site" {
 # The codepipeline to build the cloudfront distribution and lambda@edge function
 resource "aws_codepipeline" "secure-site" {
 	provider = aws.us-east-1
-	name     = "c-pipe-secure-site-${var.stage}"
+	name     = "c-secure-site-${var.stage}"
 	role_arn = aws_iam_role.codepipeline.arn
 
 	# Pipeline fails permission check sometimes when it autofires at creation so wait for role policy to apply.
@@ -209,9 +219,9 @@ resource "aws_codepipeline" "secure-site" {
 			output_artifacts = ["source"]
 
 			configuration = {
-				Owner      = "holy-order-of-the-lambda-cube"
-				Repo       = "CognitoOauth2S3Website"
-				Branch     = "master"
+				Owner      = var.github_owner
+				Repo       = var.github_repo
+				Branch     = var.github_branch
 				OAuthToken = var.github_oauth_token
 			}
 		}
@@ -250,7 +260,7 @@ resource "aws_codepipeline" "secure-site" {
 
 			configuration = {
 				ActionMode         = "CHANGE_SET_REPLACE"
-				StackName          = "c-pipe-secure-site-${var.stage}"
+				StackName          = "c-secure-site-${var.stage}"
 				ChangeSetName      = "c-secure-site-${var.stage}"
 				RoleArn            = aws_iam_role.codepipeline-cloudformation-deploy.arn
 				TemplatePath       = "build::output.yaml"
@@ -268,7 +278,7 @@ resource "aws_codepipeline" "secure-site" {
 
 			configuration = {
 				ActionMode    = "CHANGE_SET_EXECUTE"
-				StackName     = "c-pipe-secure-site-${var.stage}"
+				StackName     = "c-secure-site-${var.stage}"
 				ChangeSetName = "c-secure-site-${var.stage}"
 			}
 		}
@@ -323,6 +333,31 @@ resource "aws_codebuild_project" "secure-site" {
 
 	source {
 		type = "CODEPIPELINE"
+	}
+}
+
+# A Cloudformation stack that has absolutely no resources. Tricky because a condition must be used to get rid of the required minimum 1.
+data "local_file" "null-cfn-stack" {
+	filename = "${path.module}/NullCFNStack.json"
+}
+
+# We must create cloudfront edgelambda functions in us-east-1. Cloudfront only uses this region. This is an AWS limitation in 2019.
+resource "aws_cloudformation_stack" "secure-site" {
+	# If the stack executes before the role has permission, failure prevails.
+	depends_on = [aws_iam_role_policy.codepipeline-cloudformation-deploy]
+
+	# Only us-east-1
+	provider     = aws.us-east-1
+	name         = "c-secure-site-${var.stage}"
+	iam_role_arn = aws_iam_role.codepipeline-cloudformation-deploy.arn
+
+	# The inital stack does nothing. Triggers from codecommit will update this stack using SAM and deploy Lambda functions
+	# as well as supporting resources. On destroy, the updated stack will be destroyed, along with all resources that were added.
+	template_body = data.local_file.null-cfn-stack.content
+
+	# SAM will handle the template updates. We just want terraform to handle creation and destruction of the stack.
+	lifecycle {
+		ignore_changes = [template_body]
 	}
 }
 
@@ -457,7 +492,7 @@ data "aws_iam_policy_document" "codepipeline" {
 			"cloudformation:ExecuteChangeSet",
 		]
 
-		resources = ["arn:aws:cloudformation:us-east-1:${var.aws_account_id}:stack/c-pipe-secure-site-${var.stage}/*"]
+		resources = ["arn:aws:cloudformation:us-east-1:${var.aws_account_id}:stack/c-secure-site-${var.stage}/*"]
 	}
 
 	statement {

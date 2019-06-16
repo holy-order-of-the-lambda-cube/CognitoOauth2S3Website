@@ -8,9 +8,9 @@ Parameters:
     Type: String
   HostedZoneId:
     Type: String
-  OriginDomain:
-    Type: String
   OriginAccessIdentity:
+    Type: String
+  OriginDomain:
     Type: String
   WebAuthFunctionRoleArn:
     Type: String
