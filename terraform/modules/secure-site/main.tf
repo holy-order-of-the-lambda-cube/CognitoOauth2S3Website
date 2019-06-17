@@ -492,7 +492,7 @@ data "aws_iam_policy_document" "codepipeline" {
 			"cloudformation:ExecuteChangeSet"
 		]
 
-		resources = ["arn:aws:cloudformation:us-east-1:${var.aws_account_id}:stack/${var.name_prefix}secure-site}/*"]
+		resources = ["arn:aws:cloudformation:us-east-1:${var.aws_account_id}:stack/${var.name_prefix}secure-site/*"]
 	}
 
 	statement {
