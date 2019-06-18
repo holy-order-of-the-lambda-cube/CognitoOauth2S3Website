@@ -187,6 +187,17 @@ resource "aws_cognito_user_pool_domain" "secure-site" {
 	user_pool_id    = var.cognito_user_pool
 }
 
+data "aws_secretsmanager_secret" "github-token" {
+	provider = aws.us-east-1
+	name     = var.github_oauth_token
+}
+
+data "aws_secretsmanager_secret_version" "github-token" {
+	provider  = aws.us-east-1
+	secret_id = data.aws_secretsmanager_secret.github-token.id
+}
+
+
 # The codepipeline to build the cloudfront distribution and lambda@edge function
 resource "aws_codepipeline" "secure-site" {
 	provider = aws.us-east-1
@@ -222,7 +233,7 @@ resource "aws_codepipeline" "secure-site" {
 				Owner      = var.github_owner
 				Repo       = var.github_repo
 				Branch     = var.github_branch
-				OAuthToken = var.github_oauth_token
+				OAuthToken = jsondecode(data.aws_secretsmanager_secret_version.github-token.secret_string)["token"]
 			}
 		}
 	}

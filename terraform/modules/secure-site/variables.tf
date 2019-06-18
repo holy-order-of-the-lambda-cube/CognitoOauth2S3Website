@@ -36,7 +36,8 @@ variable "github_branch" {
 }
 
 variable "github_oauth_token" {
-	description = "An Oauth token to access github. This need only public access to pull the open source project into the codepipeline, so having no scopes defined will suffice and should be preferred."
+	default     = "github_token"
+	description = "A secrets manager secret name in us-east-1 that holds an Oauth token to access github. This need only public access to pull the open source project into the codepipeline, so having no scopes defined will suffice and should be preferred. The secret should be in the form '{\"token\":\"<Oauth Token>\"}"
 	type        = string
 }
 

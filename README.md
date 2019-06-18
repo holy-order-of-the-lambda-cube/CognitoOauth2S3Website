@@ -40,7 +40,7 @@ The module accepts some input variables to customize the secure website.
 - cognito_user_pool. The identifier of the cognito user pool being authenticated against.
 - domain. The fully qualified domain name of the secure website.
 - github_branch. The branch that hosts the version of this codebase. Defaults to 'master'.
-- github_oauth_token. An Oauth token to access github. This need only public access to pull the open source project into the codepipeline, so having no scopes defined will suffice and should be preferred. You can aquire such a token from github under Settings -> Developer Settings -> Personal Access Tokens.
+- github_oauth_token. The name of a Secrets Manager secret in us-east-1 that contains an Oauth token to access github. This need only public access to pull the open source project into the codepipeline, so having no scopes defined will suffice and should be preferred. You can aquire such a token from github under Settings -> Developer Settings -> Personal Access Tokens. In Secrets Manager the token should be inserted in the form '{"token":"<Oauth Token>"}'. Defaults to 'github_token'.
 - github_owner. The owner of the version of this codebase that you are using. Defaults to 'holy-order-of-the-lambda-cube'. If you fork the code base you should change this to point to your fork.
 - github_repo. The repository name hosting this codebase. Defaults to 'CognitoOauth2S3Website'.
 - hosted_zone_id. The route53 zone id for your domain.
@@ -63,7 +63,7 @@ The project takes the followining input variables:
 - aws_account_id. The account id of the AWS account hosting the site.
 - cognito_aws_region. The region which hosts the Cognito user pool. Defaults to 'us-east-1'.
 - cognito_user_pool. The identifier for the Cognito user pool.
-- github_oauth_token. An Oauth token to access github. This need only public access to pull the open source project into the codepipeline, so having no scopes defined will suffice and should be preferred. You can aquire such a token from github under Settings -> Developer Settings -> Personal Access Tokens.
+- github_oauth_token. The name of a Secrets Manager secret in us-east-1 that contains an Oauth token to access github. This need only public access to pull the open source project into the codepipeline, so having no scopes defined will suffice and should be preferred. You can aquire such a token from github under Settings -> Developer Settings -> Personal Access Tokens. In Secrets Manager the token should be inserted in the form '{"token":"<Oauth Token>"}'. Defaults to 'github_token'.
 - hosted_zone_id. The route53 zone id for your domain.
 - secure_prefix. The domain prefix for your secure site. Defaults to 'private.'.
 - site_aws_region. The AWS region that will host the secure site. Defaults to 'us-east-1'.
@@ -77,7 +77,6 @@ tld = "example.com"
 cognito_user_pool = "us-east-1_xxxxxxxxx"
 acm_certificate_arn = "arn:aws:acm:us-east-1:xxxxxxxxx:certificate/<Your Cert Id>"
 hosted_zone_id = "xxxxxxxxxxx"
-github_oauth_token = "<Your Oauth Token>"
 
 ```
 

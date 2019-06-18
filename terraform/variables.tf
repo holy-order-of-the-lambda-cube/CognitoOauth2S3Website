@@ -26,6 +26,7 @@ variable "cognito_user_pool" {
 }
 
 variable "github_oauth_token" {
+	default     = "github_token"
 	description = "An Oauth token to access github. This need only public access to pull the open source project into the codepipeline, so having no scopes defined will suffice and should be preferred."
 	type        = string
 }
