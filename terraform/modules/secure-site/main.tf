@@ -295,7 +295,7 @@ resource "aws_codepipeline" "secure-site" {
 
 resource "aws_codebuild_project" "secure-site" {
 	provider     = aws.us-east-1
-	name         = "secure-site"
+	name         = "${var.name_prefix}secure-site"
 	description  = "Secure site builder"
 	service_role = "${aws_iam_role.codebuild.arn}"
 
