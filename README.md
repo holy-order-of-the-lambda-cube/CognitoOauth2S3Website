@@ -45,7 +45,7 @@ The module accepts some input variables to customize the secure website.
 - github_repo. The repository name hosting this codebase. Defaults to 'CognitoOauth2S3Website'.
 - hosted_zone_id. The route53 zone id for your domain.
 - name_prefix. AWS resources will be prefixed by this to distinguish them from other module invocations. For instance, you might use 'test-' and 'prod-' to distinguish different stages of deployment. Defaults to blank.
-- populate_site. Used to indicate whether or not to include the placeholder 'index.html' file for the website. Defaults to 'true'.
+- populate_site. Used to indicate whether or not to include the placeholder 'index.html' file for the website. Defaults to true.
 - site_region. The AWS region that is hosting the website. Defaults to 'us-east-1'.
 
 ## The Standalone Terraform Project

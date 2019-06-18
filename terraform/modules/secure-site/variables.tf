@@ -65,9 +65,9 @@ variable "name_prefix" {
 }
 
 variable "populate_site" {
-	default     = "true"
+	default     = true
 	description = "If true, will put a placeholder index.html into the s3 bucket containing the secure site"
-	type        = string
+	type        = bool
 }
 
 variable "site_region" {

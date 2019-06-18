@@ -136,7 +136,7 @@ resource "aws_s3_bucket_policy" "secure-site" {
 }
 
 resource "aws_s3_bucket_object" "examplebucket_object" {
-	count                  = var.populate_site == "true" ? 1 : 0
+	count                  = var.populate_site ? 1 : 0
 	provider               = aws.site
 	key                    = "index.html"
 	bucket                 = aws_s3_bucket.secure-site.id
@@ -153,17 +153,15 @@ resource "aws_cloudfront_origin_access_identity" "secure-site" {
 # Map the auth portal to the cognito cloudfront disto
 resource "aws_route53_record" "secure-site" {
 	provider = aws.site
-
 	zone_id  = var.hosted_zone_id
 	name     = var.auth_domain
 	type     = "A"
 
 	alias {
-		evaluate_target_health = "false"
-		name                   = aws_cognito_user_pool_domain.secure-site.cloudfront_distribution_arn
-
 		# This zone_id is the cloudfront zone_id. Always the same for any cloudfront distribution.
 		zone_id                = "Z2FDTNDATAQYW2"
+		evaluate_target_health = "false"
+		name                   = aws_cognito_user_pool_domain.secure-site.cloudfront_distribution_arn
 	}
 }
 
@@ -196,7 +194,6 @@ data "aws_secretsmanager_secret_version" "github-token" {
 	provider  = aws.us-east-1
 	secret_id = data.aws_secretsmanager_secret.github-token.id
 }
-
 
 # The codepipeline to build the cloudfront distribution and lambda@edge function
 resource "aws_codepipeline" "secure-site" {
@@ -406,7 +403,7 @@ resource "aws_iam_role" "lambda-cloudfront-auth" {
 
 resource "aws_iam_role_policy" "codebuild" {
 	provider    = aws.us-east-1
-	name_prefix = "${var.name_prefix}codebuild-primary"
+	name_prefix = "${var.name_prefix}codebuild"
 	role        = aws_iam_role.codebuild.id
 	policy      = data.aws_iam_policy_document.codebuild.json
 }
