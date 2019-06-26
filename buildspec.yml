@@ -1,6 +1,9 @@
 version: 0.2
 phases:
   install:
+    runtime-versions:
+      nodejs: 8
+
     commands:
       - npm install
 
