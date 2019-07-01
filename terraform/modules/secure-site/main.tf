@@ -2,21 +2,21 @@
 provider "aws" {
 	alias = "site"
 	region = var.site_region
-	version = "~> 2.14.0"
+	version = "~> 2.17.0"
 }
 
 # This is where the cognito user pool is located
 provider "aws" {
 	alias = "cognito"
 	region = var.cognito_region
-	version = "~> 2.14.0"
+	version = "~> 2.17.0"
 }
 
 # We need to deploy lambda@edge functions in us-east-1
 provider "aws" {
 	alias = "us-east-1"
 	region = "us-east-1"
-	version = "~> 2.14.0"
+	version = "~> 2.17.0"
 }
 
 # This bucket will hold the SAM template build artifacts
