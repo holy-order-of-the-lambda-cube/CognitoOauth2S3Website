@@ -201,9 +201,6 @@ resource "aws_codepipeline" "secure-site" {
 	name     = "${var.name_prefix}secure-site"
 	role_arn = aws_iam_role.codepipeline.arn
 
-	# Pipeline fails permission check sometimes when it autofires at creation so wait for role policy to apply.
-	depends_on = [aws_iam_role_policy.codepipeline]
-
 	artifact_store {
 		location = aws_s3_bucket.codepipeline.bucket
 		type     = "S3"
@@ -218,13 +215,12 @@ resource "aws_codepipeline" "secure-site" {
 		name = "source"
 
 		action {
-			name     = "source"
-			category = "Source"
-			owner    = "ThirdParty"
-			provider = "GitHub"
-			version  = "1"
-
+			name             = "source"
+			category         = "Source"
 			output_artifacts = ["source"]
+			owner            = "ThirdParty"
+			provider         = "GitHub"
+			version          = "1"
 
 			configuration = {
 				Owner      = var.github_owner
@@ -239,15 +235,14 @@ resource "aws_codepipeline" "secure-site" {
 		name = "build"
 
 		action {
-			name     = "build"
-			category = "Build"
-			owner    = "AWS"
-			provider = "CodeBuild"
-			version  = "1"
-
-			input_artifacts = ["source"]
-
+			name             = "build"
+			category         = "Build"
+			input_artifacts  = ["source"]
 			output_artifacts = ["build"]
+			owner            = "AWS"
+			provider         = "CodeBuild"
+			role_arn         = aws_iam_role.cpln-bld.arn
+			version          = "1"
 
 			configuration = {
 				ProjectName = aws_codebuild_project.secure-site.arn
@@ -259,12 +254,13 @@ resource "aws_codepipeline" "secure-site" {
 		name = "deploy"
 
 		action {
-			name     = "plan-deployment"
-			category = "Deploy"
-			owner    = "AWS"
-			provider = "CloudFormation"
-			version  = "1"
+			name            = "plan-deployment"
+			category        = "Deploy"
 			input_artifacts = ["build"]
+			owner           = "AWS"
+			provider        = "CloudFormation"
+			role_arn         = aws_iam_role.cpln-plan.arn
+			version         = "1"
 
 			configuration = {
 				ActionMode         = "CHANGE_SET_REPLACE"
@@ -282,6 +278,7 @@ resource "aws_codepipeline" "secure-site" {
 			owner     = "AWS"
 			provider  = "CloudFormation"
 			version   = "1"
+			role_arn  = aws_iam_role.cpln-dpl.arn
 			run_order = 2
 
 			configuration = {
@@ -290,6 +287,148 @@ resource "aws_codepipeline" "secure-site" {
 				ChangeSetName = "${var.name_prefix}secure-site"
 			}
 		}
+	}
+}
+
+resource "aws_iam_role" "codepipeline" {
+	provider           = aws.us-east-1
+	name_prefix        = "${var.name_prefix}cpln-secure-site"
+	assume_role_policy = data.aws_iam_policy_document.codepipeline-assume-role.json
+}
+
+resource "aws_iam_role_policy" "codepipeline" {
+	provider    = aws.us-east-1
+	name_prefix = "${var.name_prefix}cpln-secure-site"
+	role        = aws_iam_role.codepipeline.id
+	policy      = data.aws_iam_policy_document.codepipeline.json
+}
+
+data "aws_iam_policy_document" "codepipeline" {
+	provider = aws.us-east-1
+
+	statement {
+		actions   = ["s3:PutObject"]
+		resources = ["${aws_s3_bucket.codepipeline.arn}/*"]
+	}
+}
+
+# The assume role policy for all of the CodePipeline actions
+data "aws_iam_policy_document" "a-cpln" {
+	provider = aws.us-east-1
+
+	statement {
+		# We can assume this rolo from the codepipeline role
+		principals {
+			type        = "AWS"
+			identifiers = [aws_iam_role.codepipeline.arn]
+		}
+
+		actions = ["sts:AssumeRole"]
+	}
+}
+
+resource "aws_iam_role" "cpln-bld" {
+	provider           = aws.us-east-1
+	name_prefix        = "${var.name_prefix}cpln-bld"
+	assume_role_policy = data.aws_iam_policy_document.a-cpln.json
+}
+
+resource "aws_iam_role_policy" "cpln-bld" {
+	provider    = aws.us-east-1
+	name_prefix = "${var.name_prefix}cpln-bld"
+	role        = aws_iam_role.cpln-bld.id
+	policy      = data.aws_iam_policy_document.cpln-bld.json
+}
+
+data "aws_iam_policy_document" "cpln-bld" {
+	provider = aws.us-east-1
+
+	statement {
+		actions = [
+			"codebuild:BatchGetBuilds",
+			"codebuild:StartBuild"
+		]
+
+		resources = [aws_codebuild_project.secure-site.arn]
+	}
+
+	statement {
+		actions = [
+			"s3:GetObject",
+			"s3:GetObjectVersion",
+			"s3:PutObject"
+		]
+
+		resources = ["${aws_s3_bucket.codepipeline.arn}/*"]
+	}
+}
+
+resource "aws_iam_role" "cpln-plan" {
+	provider           = aws.us-east-1
+	name_prefix        = "${var.name_prefix}cpln-plan"
+	assume_role_policy = data.aws_iam_policy_document.a-cpln.json
+}
+
+resource "aws_iam_role_policy" "cpln-plan" {
+	provider    = aws.us-east-1
+	name_prefix = "${var.name_prefix}cpln-plan"
+	role        = aws_iam_role.cpln-plan.id
+	policy      = data.aws_iam_policy_document.cpln-plan.json
+}
+
+data "aws_iam_policy_document" "cpln-plan" {
+	provider = aws.us-east-1
+
+	statement {
+		actions = [
+			"s3:GetObject",
+			"s3:GetObjectVersion"
+		]
+
+		resources = ["${aws_s3_bucket.codepipeline.arn}/*"]
+	}
+
+	statement {
+		actions = [
+			"cloudformation:CreateChangeSet",
+			"cloudformation:DescribeChangeSet",
+			"cloudformation:DescribeStacks"
+		]
+
+		resources = ["arn:aws:cloudformation:us-east-1:${var.aws_account_id}:stack/${var.name_prefix}secure-site/*"]
+	}
+
+	statement {
+		actions   = ["iam:PassRole"]
+		resources = [aws_iam_role.codepipeline-cloudformation-deploy.arn]
+	}
+}
+
+resource "aws_iam_role" "cpln-dpl" {
+	provider           = aws.us-east-1
+	name_prefix        = "${var.name_prefix}cpln-dpl"
+	assume_role_policy = data.aws_iam_policy_document.a-cpln.json
+}
+
+resource "aws_iam_role_policy" "cpln-dpl" {
+	provider    = aws.us-east-1
+	name_prefix = "${var.name_prefix}cpln-dpl"
+	role        = aws_iam_role.cpln-dpl.id
+	policy      = data.aws_iam_policy_document.cpln-dpl.json
+}
+
+data "aws_iam_policy_document" "cpln-dpl" {
+	provider = aws.us-east-1
+
+	statement {
+		actions = [
+			"cloudformation:DeleteChangeSet",
+			"cloudformation:DescribeChangeSet",
+			"cloudformation:DescribeStacks",
+			"cloudformation:ExecuteChangeSet"
+		]
+
+		resources = ["arn:aws:cloudformation:us-east-1:${var.aws_account_id}:stack/${var.name_prefix}secure-site/*"]
 	}
 }
 
@@ -383,12 +522,6 @@ resource "aws_iam_role" "codebuild" {
 	assume_role_policy = data.aws_iam_policy_document.codebuild-assume-role.json
 }
 
-resource "aws_iam_role" "codepipeline" {
-	provider           = aws.us-east-1
-	name_prefix        = "${var.name_prefix}pipe-secure-site"
-	assume_role_policy = data.aws_iam_policy_document.codepipeline-assume-role.json
-}
-
 resource "aws_iam_role" "codepipeline-cloudformation-deploy" {
 	provider           = aws.us-east-1
 	name_prefix        = "${var.name_prefix}pipe-cfn-deploy"
@@ -406,13 +539,6 @@ resource "aws_iam_role_policy" "codebuild" {
 	name_prefix = "${var.name_prefix}codebuild"
 	role        = aws_iam_role.codebuild.id
 	policy      = data.aws_iam_policy_document.codebuild.json
-}
-
-resource "aws_iam_role_policy" "codepipeline" {
-	provider    = aws.us-east-1
-	name_prefix = "${var.name_prefix}pipe-secure-site"
-	role        = aws_iam_role.codepipeline.id
-	policy      = data.aws_iam_policy_document.codepipeline.json
 }
 
 resource "aws_iam_role_policy" "codepipeline-cloudformation-deploy" {
@@ -466,46 +592,6 @@ data "aws_iam_policy_document" "codebuild" {
 	statement {
 		actions   = ["s3:PutObject"]
 		resources = ["${aws_s3_bucket.build-artifacts.arn}/*"]
-	}
-}
-
-data "aws_iam_policy_document" "codepipeline" {
-	provider = aws.us-east-1
-
-	statement {
-		actions = [
-			"codebuild:BatchGetBuilds",
-			"codebuild:StartBuild"
-		]
-
-		resources = [aws_codebuild_project.secure-site.arn]
-	}
-
-	statement {
-		actions = [
-			"s3:GetObject",
-			"s3:GetObjectVersion",
-			"s3:PutObject"
-		]
-
-		resources = ["${aws_s3_bucket.codepipeline.arn}/*"]
-	}
-
-	statement {
-		actions = [
-			"cloudformation:CreateChangeSet",
-			"cloudformation:DeleteChangeSet",
-			"cloudformation:DescribeChangeSet",
-			"cloudformation:DescribeStacks",
-			"cloudformation:ExecuteChangeSet"
-		]
-
-		resources = ["arn:aws:cloudformation:us-east-1:${var.aws_account_id}:stack/${var.name_prefix}secure-site/*"]
-	}
-
-	statement {
-		actions   = ["iam:PassRole"]
-		resources = [aws_iam_role.codepipeline-cloudformation-deploy.arn]
 	}
 }
 
