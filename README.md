@@ -1,5 +1,7 @@
 # CognitoOauth2S3Website
 
+WARNING: This project is using an older nodejs which has not been updated as this project is not actively maintained. While there are likely no issues updating to a current platform and it may be a trivial upgrade, I recommend evaluating the concept and self supporting rather than using an unsupported project directly in a production environnement.
+
 #### A cognito authenticated static site hosted in S3.
 
 This Open Source project defines a function that can be used to authenticate a user that is accessing a website hosted on S3 via cloudfront against a cognito user pool using Oauth2. The authentication processes uses full Oauth2 security measures including the use of a client secret and stores the authentication token for the user in a cookie.
